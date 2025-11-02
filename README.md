@@ -1,4 +1,5 @@
-<h1 align="center">
+ dont sue me jio, sue the original author. : (
+ <h1 align="center">
   <br>
   <a href="#">
     <img src="https://i.imgur.com/Nn0IAkK.png" alt="CustTermux Icon" width="200">
