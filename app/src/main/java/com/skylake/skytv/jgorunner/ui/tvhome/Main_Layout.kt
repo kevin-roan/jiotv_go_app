@@ -82,6 +82,13 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
     var isEpgLoading by remember { mutableStateOf(false) }
     var epgError by remember { mutableStateOf(false) }
     var showLoading by remember { mutableStateOf(false) }
+    val autoReloadPrefs = context.getSharedPreferences("auto_reload_prefs", Context.MODE_PRIVATE)
+    val MAX_AUTO_RELOAD_ATTEMPTS = 3
+    
+    // Get auto-reload attempts from SharedPreferences (persists across activity restarts)
+    var autoReloadAttempts by remember { 
+        mutableIntStateOf(autoReloadPrefs.getInt("auto_reload_attempts", 0))
+    }
 
     remember { FocusRequester() }
     val categoryMap = mapOf(
@@ -441,6 +448,42 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
         }
     }
 
+    // Helper function to reload the app
+    fun reloadApp() {
+        (context as? Activity)?.let { activity ->
+            val intent = activity.intent
+            activity.finish()
+            activity.startActivity(intent)
+        }
+    }
+
+    // Auto-reload timer: runs 3 times (6 seconds total) when channels are not found
+    // Use a key that combines error state and attempts to control when effect triggers
+    val shouldAutoReload = fetched && filteredChannels.value.isEmpty() && autoReloadAttempts < MAX_AUTO_RELOAD_ATTEMPTS
+    LaunchedEffect(shouldAutoReload) {
+        if (shouldAutoReload) {
+            delay(2000) // Wait 2 seconds
+            // Check again if still in error state (channels still empty)
+            // This prevents reloading if channels were loaded during the delay
+            if (fetched && filteredChannels.value.isEmpty() && autoReloadAttempts < MAX_AUTO_RELOAD_ATTEMPTS) {
+                val newAttempts = autoReloadAttempts + 1
+                autoReloadAttempts = newAttempts
+                // Persist attempts to SharedPreferences
+                autoReloadPrefs.edit().putInt("auto_reload_attempts", newAttempts).apply()
+                reloadApp()
+            }
+        }
+    }
+
+    // Reset auto-reload attempts when channels are successfully loaded
+    LaunchedEffect(filteredChannels.value.isNotEmpty()) {
+        if (filteredChannels.value.isNotEmpty() && autoReloadAttempts > 0) {
+            autoReloadAttempts = 0
+            // Clear attempts from SharedPreferences
+            autoReloadPrefs.edit().remove("auto_reload_attempts").apply()
+        }
+    }
+
     // UI: Loading state
     if (!fetched && showLoading) {
         Box(
@@ -475,11 +518,9 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
                 Spacer(modifier = Modifier.height(24.dp))
                 ElevatedCard(
                     onClick = {
-                        (context as? Activity)?.let { activity ->
-                            val intent = activity.intent
-                            activity.finish()
-                            activity.startActivity(intent)
-                        }
+                        // Reset auto-reload attempts when user manually clicks reload
+                        autoReloadPrefs.edit().remove("auto_reload_attempts").apply()
+                        reloadApp()
                     },
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
