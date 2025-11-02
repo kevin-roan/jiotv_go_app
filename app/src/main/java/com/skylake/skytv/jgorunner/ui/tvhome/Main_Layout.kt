@@ -93,6 +93,7 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
     remember { FocusRequester() }
     val categoryMap = mapOf(
         "All" to null,
+        "Favourites" to -1, // Special identifier for favorites
         "Entertainment" to 5,
         "Movies" to 6,
         "Kids" to 7,
@@ -107,11 +108,50 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
         "Shopping" to 18,
         "JioDarshan" to 19
     )
+    
+    // Favorites management
+    val favoriteChannelIdsPrefs = context.getSharedPreferences("favorite_channels", Context.MODE_PRIVATE)
+    var favoriteChannelIds by remember {
+        mutableStateOf(
+            favoriteChannelIdsPrefs.getStringSet("favorite_channel_ids", emptySet())?.toSet() ?: emptySet()
+        )
+    }
+    
+    // Helper function to toggle favorite status
+    fun toggleFavorite(channel: Channel) {
+        val newFavorites = if (favoriteChannelIds.contains(channel.channel_id)) {
+            favoriteChannelIds - channel.channel_id
+        } else {
+            favoriteChannelIds + channel.channel_id
+        }
+        favoriteChannelIds = newFavorites
+        favoriteChannelIdsPrefs.edit().putStringSet("favorite_channel_ids", newFavorites).apply()
+    }
+    
+    // Check if a channel is favorited
+    fun isFavorite(channel: Channel): Boolean {
+        return favoriteChannelIds.contains(channel.channel_id)
+    }
 
     val savedCategoryIds = preferenceManager.myPrefs.filterCI
         ?.split(",")?.mapNotNull { it.toIntOrNull() }?.toMutableSet() ?: mutableSetOf()
-//    var selectedCategoryIds by remember { mutableStateOf(savedCategoryIds) }
-    var selectedCategoryIds by rememberSaveable { mutableStateOf(savedCategoryIds.toSet()) }
+    
+    // Auto-select favorites on first launch if favorites exist and no categories are selected
+    // Check favorites directly from SharedPreferences since this is initialization
+    val hasFavoritesOnLaunch = remember {
+        favoriteChannelIdsPrefs.getStringSet("favorite_channel_ids", emptySet())?.isNotEmpty() == true
+    }
+    
+    val initialCategoryIds = remember {
+        if (savedCategoryIds.isEmpty() && hasFavoritesOnLaunch) {
+            // First launch with favorites - auto-select favorites
+            setOf(-1)
+        } else {
+            savedCategoryIds.toSet()
+        }
+    }
+    
+    var selectedCategoryIds by rememberSaveable { mutableStateOf(initialCategoryIds) }
 
     val sortedCategories = remember(selectedCategoryIds) {
         val allCategoryName = "All"
@@ -396,16 +436,30 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
     }
 
     // Re-filter channels when category changes
-    LaunchedEffect(selectedCategoryIds) {
+    LaunchedEffect(selectedCategoryIds, favoriteChannelIds) {
         channelsResponse.value?.let { response ->
             val languages = preferenceManager.myPrefs.filterLI
                 ?.split(",")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.isNotEmpty() }
 
-            val filtered = ChannelUtils.filterChannels(
-                response,
-                categoryIds = selectedCategoryIds.takeIf { it.isNotEmpty() }?.toList(),
-                languageIds = languages
-            )
+            // Check if Favourites (-1) is selected
+            val isFavouritesSelected = selectedCategoryIds.contains(-1)
+            
+            val filtered = if (isFavouritesSelected) {
+                // Filter by favorites - show only favorited channels
+                val allChannels = ChannelUtils.filterChannels(
+                    response,
+                    categoryIds = null,
+                    languageIds = languages
+                )
+                allChannels.filter { isFavorite(it) }
+            } else {
+                // Normal category filtering
+                ChannelUtils.filterChannels(
+                    response,
+                    categoryIds = selectedCategoryIds.takeIf { it.isNotEmpty() && !it.contains(-1) }?.toList(),
+                    languageIds = languages
+                )
+            }
             filteredChannels.value = filtered
         }
     }
@@ -653,7 +707,9 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
                     filteredChannels = filteredChannels.value,
                     selectedChannelSetter = { selectedChannel = it },
                     localPORT = localPORT,
-                    preferenceManager = preferenceManager
+                    preferenceManager = preferenceManager,
+                    onToggleFavorite = { channel -> toggleFavorite(channel) },
+                    isFavorite = { channel -> isFavorite(channel) }
                 )
             }
 
@@ -679,7 +735,9 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
                                     selectedCategoryIds + categoryId
                                 }
                             }
-                            val updatedCI = selectedCategoryIds.joinToString(",")
+                            // Save only regular category IDs (exclude favorites -1)
+                            val regularCategoryIds = selectedCategoryIds.filter { it != -1 }
+                            val updatedCI = regularCategoryIds.joinToString(",")
                             preferenceManager.myPrefs.filterCI = updatedCI
                             preferenceManager.savePreferences()
                         },
