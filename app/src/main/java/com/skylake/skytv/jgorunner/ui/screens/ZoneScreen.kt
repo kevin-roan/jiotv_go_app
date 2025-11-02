@@ -8,9 +8,11 @@ import android.widget.Toast
 import androidx.compose.animation.Animatable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -135,17 +137,77 @@ fun ZoneScreen(context: Context, onNavigate: (String) -> Unit) {
     ) { innerPadding ->
 
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Log.d("_", innerPadding.toString())
 
-            // Top Row
+            Box(modifier = Modifier.weight(1f)) {
+                if (preferenceManager.myPrefs.customPlaylistSupport &&
+                    !preferenceManager.myPrefs.showPLAYLIST
+                ) {
+
+                    Main_Layout_3rd(context, reloadTrigger = reloadChannelsTrigger)
+
+                } else if (!preferenceManager.myPrefs.showRecentTab) {
+
+                    Main_Layout(context, reloadTrigger = reloadChannelsTrigger)
+
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Tabs Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .focusRestorer()
+                                .focusRequester(tabFocusRequester)
+                                .focusable(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
+                                tabs.forEachIndexed { index, tab ->
+                                    Tab(
+                                        selected = index == selectedTabIndex,
+                                        onClick = { selectedTabIndex = index },
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = tab.icon,
+                                                    contentDescription = "Tab Icon",
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(text = tab.text)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Tab Content
+                        Box(modifier = Modifier.weight(1f)) {
+                            when (selectedTabIndex) {
+                                0 -> Main_Layout(context, reloadTrigger = reloadChannelsTrigger)
+                                1 -> Recent_Layout(context)
+                                2 -> SearchTabLayout(context, tabFocusRequester)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Row - moved from top
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -181,63 +243,6 @@ fun ZoneScreen(context: Context, onNavigate: (String) -> Unit) {
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
-                }
-            }
-
-            if (preferenceManager.myPrefs.customPlaylistSupport &&
-                !preferenceManager.myPrefs.showPLAYLIST
-            ) {
-
-                Main_Layout_3rd(context, reloadTrigger = reloadChannelsTrigger)
-
-            } else if (!preferenceManager.myPrefs.showRecentTab) {
-
-                Main_Layout(context, reloadTrigger = reloadChannelsTrigger)
-
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Tabs Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .focusRestorer()
-                            .focusRequester(tabFocusRequester)
-                            .focusable(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
-                            tabs.forEachIndexed { index, tab ->
-                                Tab(
-                                    selected = index == selectedTabIndex,
-                                    onClick = { selectedTabIndex = index },
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = tab.icon,
-                                                contentDescription = "Tab Icon",
-                                                modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(text = tab.text)
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // Tab Content
-                    when (selectedTabIndex) {
-                        0 -> Main_Layout(context, reloadTrigger = reloadChannelsTrigger)
-                        1 -> Recent_Layout(context)
-                        2 -> SearchTabLayout(context, tabFocusRequester)
-                    }
                 }
             }
 

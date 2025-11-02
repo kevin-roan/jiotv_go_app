@@ -541,67 +541,11 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
     }
     // UI: Main content
     else {
-        // CATEGORY CHIPS
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            items(sortedCategories) { categoryName ->
-                val categoryId = categoryMap[categoryName]
-                val isSelected = categoryId != null && selectedCategoryIds.contains(categoryId)
-
-                FilterChip(
-                    onClick = {
-                        if (categoryName == "All") {
-                            selectedCategoryIds = emptySet()
-                        } else if (categoryId != null) {
-                            selectedCategoryIds = if (isSelected) {
-                                selectedCategoryIds - categoryId
-                            } else {
-                                selectedCategoryIds + categoryId
-                            }
-                        }
-                        val updatedCI = selectedCategoryIds.joinToString(",")
-                        preferenceManager.myPrefs.filterCI = updatedCI
-                        preferenceManager.savePreferences()
-                    },
-                    label = { Text(categoryName) },
-                    selected = if (categoryName == "All") {
-                        selectedCategoryIds.isEmpty()
-                    } else {
-                        isSelected
-                    },
-                    leadingIcon = when {
-                        categoryName == "All" && selectedCategoryIds.isEmpty() -> {
-                            {
-                                Icon(
-                                    imageVector = Icons.Filled.Done,
-                                    contentDescription = "All selected icon",
-                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                )
-                            }
-                        }
-
-                        isSelected -> {
-                            {
-                                Icon(
-                                    imageVector = Icons.Filled.Done,
-                                    contentDescription = "Done icon",
-                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                )
-                            }
-                        }
-
-                        else -> null
-                    }
-                )
-            }
-        }
-
-        // EPG CARD (null-safe)
-        if (isEpgLoading || epgData != null || epgError) {
+            // EPG CARD (null-safe)
+            if (isEpgLoading || epgData != null || epgError) {
             Column(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -703,15 +647,75 @@ fun Main_Layout(context: Context, reloadTrigger: Int) {
             }
         }
 
-        ChannelGridMain(
-            context = context,
-            filteredChannels = filteredChannels.value,
-            selectedChannelSetter = { selectedChannel = it },
-            localPORT = localPORT,
-            preferenceManager = preferenceManager
-        )
+            Box(modifier = Modifier.weight(1f)) {
+                ChannelGridMain(
+                    context = context,
+                    filteredChannels = filteredChannels.value,
+                    selectedChannelSetter = { selectedChannel = it },
+                    localPORT = localPORT,
+                    preferenceManager = preferenceManager
+                )
+            }
 
+            // CATEGORY CHIPS - moved to bottom
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(sortedCategories) { categoryName ->
+                    val categoryId = categoryMap[categoryName]
+                    val isSelected = categoryId != null && selectedCategoryIds.contains(categoryId)
 
+                    FilterChip(
+                        onClick = {
+                            if (categoryName == "All") {
+                                selectedCategoryIds = emptySet()
+                            } else if (categoryId != null) {
+                                selectedCategoryIds = if (isSelected) {
+                                    selectedCategoryIds - categoryId
+                                } else {
+                                    selectedCategoryIds + categoryId
+                                }
+                            }
+                            val updatedCI = selectedCategoryIds.joinToString(",")
+                            preferenceManager.myPrefs.filterCI = updatedCI
+                            preferenceManager.savePreferences()
+                        },
+                        label = { Text(categoryName) },
+                        selected = if (categoryName == "All") {
+                            selectedCategoryIds.isEmpty()
+                        } else {
+                            isSelected
+                        },
+                        leadingIcon = when {
+                            categoryName == "All" && selectedCategoryIds.isEmpty() -> {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Filled.Done,
+                                        contentDescription = "All selected icon",
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                    )
+                                }
+                            }
+
+                            isSelected -> {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Filled.Done,
+                                        contentDescription = "Done icon",
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                    )
+                                }
+                            }
+
+                            else -> null
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
